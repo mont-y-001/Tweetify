@@ -112,24 +112,36 @@ app.post('/login', async (req, res) => {
 
 });
 app.post('/register', async (req, res) => {
-    let { email, password, username, name, age } = req.body;  //de-Structuring
-    let user = await userModel.findOne({ email });  //findOne ki help se hum pta lga lenge ki koi user exist krta h ki nhi at te time registration
-    if (user) return res.status(500).send("User Already Exist");
+    try {
+        let { email, password, username, name, age } = req.body;
 
-    bcrypt.genSalt(10, (err, salt) => {
-        bcrypt.hash(password, salt, async (err, hash) => {
-            let user = await userModel.create({
-                username,
-                name,
-                email,
-                password: hash,
-                age
+        let user = await userModel.findOne({ email });
+        if (user) return res.status(400).send("User Already Exist");
+
+        bcrypt.genSalt(10, (err, salt) => {
+            bcrypt.hash(password, salt, async (err, hash) => {
+                if (err) return res.status(500).send("Error hashing password");
+
+                let newUser = await userModel.create({
+                    email,
+                    password: hash,
+                    username,
+                    name,
+                    age
+                });
+
+                let token = jwt.sign({ email, userid: newUser._id }, "secretkey");
+                res.cookie("token", token);
+                res.redirect("/profile");
             });
-            let token = jwt.sign({email:email, userid:user._id}, "secretkey");
-            res.cookie("token", token);
-            res.send("registered");
-        })
-    })
-
+        });
+    } catch (err) {
+        console.error(err);
+        res.status(500).send("Internal Server Error");
+    }
 });
-app.listen(3000);
+
+app.listen(3000, () => {
+    console.log('Server started on port 3000');
+  });
+  
